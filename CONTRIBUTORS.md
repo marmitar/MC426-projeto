@@ -2,4 +2,4 @@
 2 - Vitor Jundi Moriya (188404)
 3 - Leonardo de Sousa Rodrigues (220063)
 4 - Erick Manaroulas Felipe (215448)
-5 - Erick Manaroulas Felipe (215448)
+5 - Tiago de Paula Alves (187679)
