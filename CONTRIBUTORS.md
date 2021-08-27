@@ -1,5 +1,5 @@
 1 - Erick Manaroulas Felipe (215448)
-2 - Erick Manaroulas Felipe (215448)
+2 - Vitor Jundi Moriya (188404)
 3 - Erick Manaroulas Felipe (215448)
 4 - Erick Manaroulas Felipe (215448)
 5 - Erick Manaroulas Felipe (215448)
