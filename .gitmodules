@@ -1,3 +1,7 @@
 [submodule "projeto_mc426_backend"]
 	path = projeto_mc426_backend
 	url = git@gitlab.com:erickmanaroulas/projeto_mc426_backend.git
+
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive

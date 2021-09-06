@@ -1,4 +1,8 @@
 # Planejador de Disciplinas
+ao clonar, rodar seguintes comandos:
+git submodule init
+git submodule update
+
 
 Esse projeto tem como objetivo principal desenvolver uma plataforma para auxiliar estudantes de universidades públicas a planejar as disciplinas que irão cursar.
 
