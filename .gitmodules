@@ -1,3 +1,3 @@
-[submodule "projeto_mc426_backend"]
-	path = projeto_mc426_backend
-	url = git@gitlab.com:erickmanaroulas/projeto_mc426_backend.git
+[submodule "backend"]
+	path = backend
+	url = git@gitlab.com:disciplinas1/mc426/backend.git
