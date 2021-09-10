@@ -75,7 +75,7 @@ def get_and_save_disciplines_data(initials: str, directory: str):
     disciplines = get_disciplines(initials)
     disciplines_dict = parse_disciplines(disciplines)
     with open(f'{directory}/{initials.upper()}.json', 'w') as file:
-        json.dump(disciplines_dict, file, indent=4)
+        json.dump(disciplines_dict, file, indent=4, ensure_ascii=False)
 
 
 def get_and_save_all_disciplines_data(directory: str):
