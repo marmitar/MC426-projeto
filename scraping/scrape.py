@@ -38,10 +38,6 @@ def parse_requirements(raw: str) -> list[list[str]]:
     or_string = ' ou '
     and_string = '+'
     requirements = [group.split(and_string) for group in raw.split(or_string)]
-
-    if not is_discipline_code(requirements[0][0]) and requirements[0][0] != "N\u00e3o h\u00e1 pr\u00e9-requisitos para essa disciplina":
-        print(requirements[0][0])
-
     return requirements if is_discipline_code(requirements[0][0]) else None
 
 
