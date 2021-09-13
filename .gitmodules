@@ -1,3 +1,6 @@
 [submodule "backend"]
 	path = backend
 	url = git@gitlab.com:disciplinas1/mc426/backend.git
+[submodule "frontend"]
+	path = frontend
+	url = git@gitlab.com:disciplinas1/mc426/frontend.git
