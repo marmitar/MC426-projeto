@@ -6,6 +6,25 @@ Para isso, serão levados em conta conflitos de horário e pré-requisitos neces
 
 Como objetivos secundários, pondera-se implementar a visualização da árvore de disciplinas do estudante, troca de mensagens entre os usuários, interações entre serviços já existentes de calendário, entre outros.
 
+## Diagrama de Arquitetura
+
+O diagrama C4 nível 3 da arquitetura do projeto, englobando front e back-end, está na figura abaixo.
+
+![Diagram](./C4diagram.png)
+
+### Estilos Arquiteturais
+
+Como mostrado no diagrama, o projeto utiliza um estilo de API RESTful para requisições entre o front e o back-end. Além disso, o front-end é construído baseado no estilo *Single Page Application* (SPA).
+
+### Padrões de Projeto
+
+O padrão de projeto adotado para alguns componentes também está nas respectivas descrições no diagrama. São eles:
+
+- Controladores de cursos e disciplinas
+    - Implementação como *singletons*
+- Controlador de busca
+    - Implementação como *adapter* que comunica com a biblioteca *RapidFuzz* em C++
+
 ## Instruções de Submódulos
 
 Ao clonar, utilizar
