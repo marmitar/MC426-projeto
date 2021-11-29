@@ -1,12 +1,13 @@
 stages:
   - image
+  - build
   - test
 
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
   IMAGEREF: $CI_REGISTRY/disciplinas1/mc426/projeto/base:latest
 
-dockerfile:
+base image:
   tags:
     - docker
   stage: image
@@ -18,9 +19,16 @@ dockerfile:
     - docker build -t $IMAGEREF .
     - docker push $IMAGEREF
 
-build_backend:
+build backend:
+  stage: build
+  image: $IMAGEREF
+  script:
+    - cd ./backend
+    - swift build
+
+test backend:
   stage: test
   image: $IMAGEREF
   script:
-    - cd /app/backend
+    - cd ./backend
     - swift test
