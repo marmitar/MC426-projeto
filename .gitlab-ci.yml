@@ -4,7 +4,7 @@ stages:
 
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
-  IMAGEREF: $CI_REGISTRY/disciplinas1/mc426/projeto
+  IMAGEREF: $CI_REGISTRY/disciplinas1/mc426/projeto/base:latest
 
 dockerfile:
   tags:
