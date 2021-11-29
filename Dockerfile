@@ -29,3 +29,5 @@ RUN swift package resolve
 
 # Copy main executable to staging area
 # RUN cp "$(swift build --package-path /backend -c release --show-bin-path)/Run" ./
+
+WORKDIR /
