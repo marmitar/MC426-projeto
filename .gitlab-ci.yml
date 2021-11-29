@@ -6,9 +6,6 @@ variables:
   GIT_SUBMODULE_STRATEGY: recursive
   IMAGEREF: $CI_REGISTRY/disciplinas1/mc426/swiftpython:latest
 
-before_script:
-  - apt-get install -y ssh-client
-
 dockerfile:
   tags:
     - docker
