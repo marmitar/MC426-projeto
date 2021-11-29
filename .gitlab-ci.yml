@@ -22,5 +22,5 @@ build_backend:
   stage: test
   image: $IMAGEREF
   script:
-    - cd app/backend
+    - cd /app/backend
     - swift test
