@@ -3,6 +3,7 @@ stages:
   - test
 
 variables:
+  GIT_SUBMODULE_STRATEGY: recursive
   IMAGEREF: $CI_REGISTRY/disciplinas1/mc426/swiftpython:latest
 
 dockerfile:
