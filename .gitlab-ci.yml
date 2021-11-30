@@ -1,34 +1,33 @@
 stages:
-  - image
-  - build
-  - test
-
-variables:
-  GIT_SUBMODULE_STRATEGY: recursive
-  IMAGEREF: $CI_REGISTRY/disciplinas1/mc426/projeto/base:latest
+    - image
+    - test
 
 base image:
-  tags:
-    - docker
-  stage: image
-  image: docker:latest
-  services:
-    - docker:dind
-  script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - docker build -t $IMAGEREF .
-    - docker push $IMAGEREF
+    tags:
+        - docker
+    stage: image
+    image: docker:latest
+    services:
+        - docker:dind
+    script:
+        - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+        - docker build -t $CI_REGISTRY/disciplinas1/mc426/projeto/base:latest -f base.dockerfile .
+        - docker push $CI_REGISTRY/disciplinas1/mc426/projeto/base:latest
+    interruptible: true
+    only:
+        changes:
+            - base.dockerfile
 
-build backend:
-  stage: build
-  image: $IMAGEREF
-  script:
-    - cd ./backend
-    - swift build
-
-test backend:
-  stage: test
-  image: $IMAGEREF
-  script:
-    - cd ./backend
-    - swift test
+test base image:
+    stage: test
+    image: $CI_REGISTRY/disciplinas1/mc426/projeto/base:latest
+    script:
+        - swift --version | grep -E 'Swift version 5.[5-9]'
+        - python3 --version | grep -E 'Python 3.([8-9]|[1-9][0-9]+)'
+        - python3 -c 'import bs4'
+        - python3 -c 'import requests'
+        - python3 -c 'import typing'
+    interruptible: true
+    only:
+        changes:
+            - base.dockerfile
