@@ -1,33 +1,48 @@
 stages:
     - image
-    - test
 
-base image:
-    tags:
-        - docker
-    stage: image
-    image: docker:latest
-    services:
-        - docker:dind
-    script:
-        - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-        - docker build -t $CI_REGISTRY/disciplinas1/mc426/projeto/base:latest -f base.dockerfile .
-        - docker push $CI_REGISTRY/disciplinas1/mc426/projeto/base:latest
-    interruptible: true
-    only:
-        changes:
-            - base.dockerfile
+variables:
+  GIT_DEPTH: 5
+  GIT_SUBMODULE_STRATEGY: none
+  # Tag to deploy image
+  DEPLOY_TAG: $CI_COMMIT_REF_SLUG
+  # Backend tag to use server image when integrating
+  BACKEND_IMAGE_TAG: latest
+  # Frontend branch and job to get artifacts to integrate
+  FRONTEND_BRANCH_NAME: $CI_DEFAULT_BRANCH
+  FRONTEND_BUILD_JOB_NAME: build-release
 
-test base image:
-    stage: test
-    image: $CI_REGISTRY/disciplinas1/mc426/projeto/base:latest
-    script:
-        - swift --version | grep -E 'Swift version 5.[5-9]'
-        - python3 --version | grep -E 'Python 3.([8-9]|[1-9][0-9]+)'
-        - python3 -c 'import bs4'
-        - python3 -c 'import requests'
-        - python3 -c 'import typing'
-    interruptible: true
-    only:
-        changes:
-            - base.dockerfile
+workflow:
+  rules:
+    # Main branch - deploy image as latest
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      variables:
+        DEPLOY_TAG: latest
+    # Other branches need manual run at Gitlab
+    - if: $CI_PIPELINE_SOURCE == "web"
+
+# Build integrated image
+server-image:
+  stage: image
+  image: docker:latest
+  tags:
+    - docker
+  services:
+    - docker:dind
+  variables:
+    API_CALL_URL: $CI_API_V4_URL/projects/$FRONTEND_PROJECT_ID/jobs/artifacts/$FRONTEND_BRANCH_NAME/download?job=$FRONTEND_BUILD_JOB_NAME
+    BACKEND_IMAGE: $CI_REGISTRY/$CI_PROJECT_NAMESPACE/backend/deploy:$BACKEND_IMAGE_TAG
+    DEPLOY_IMAGE: $CI_REGISTRY/$CI_PROJECT_PATH/server
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    # Get frontend build directory from pipeline artifacts
+    - 'wget -O artifacts.zip --header "PRIVATE-TOKEN: $PRIVATE_TOKEN" "$API_CALL_URL"'
+    - unzip -o artifacts.zip
+  script:
+    # Get backend image with server executable
+    - docker create --name ServerImage $BACKEND_IMAGE
+    # Copy frontend files to image and deploy the integrated one
+    - docker cp ./build ServerImage:/app/Public
+    - docker commit ServerImage $DEPLOY_IMAGE:$DEPLOY_TAG
+    - docker push $DEPLOY_IMAGE:$DEPLOY_TAG
+  needs: []
