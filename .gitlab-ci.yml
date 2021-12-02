@@ -1,5 +1,8 @@
 stages:
-    - image
+  - configure
+  - build
+  - deploy
+  - clean
 
 variables:
   GIT_DEPTH: 5
@@ -11,6 +14,9 @@ variables:
   # Frontend branch and job to get artifacts to integrate
   FRONTEND_BRANCH_NAME: $CI_DEFAULT_BRANCH
   FRONTEND_BUILD_JOB_NAME: build-release
+  # Final image on Gitlab and AWS registries
+  GITLAB_IMAGE: $CI_REGISTRY/$CI_PROJECT_PATH/server
+  AWS_IMAGE: planejador-de-disciplinas:latest
 
 workflow:
   rules:
@@ -21,28 +27,149 @@ workflow:
     # Other branches need manual run at Gitlab
     - if: $CI_PIPELINE_SOURCE == "web"
 
-# Build integrated image
-server-image:
-  stage: image
+# Image with AWS cli configured with the access key + jq
+.aws-cli-template: &aws-cli-template
+  image:
+    name: amazon/aws-cli:latest
+    entrypoint: [""]
+  before_script:
+    - mkdir ~/.aws
+    - |
+      echo <<EOF > ~/.aws/credentials
+      [default]
+      aws_access_key_id=$AWS_ACCESS_KEY_ID
+      aws_secret_access_key=$AWS_SECRET_ACCESS_KEY
+      EOF
+    - |
+      echo <<EOF > ~/.aws/config
+      [default]
+      region=$AWS_DEFAULT_REGION
+      output=json
+      EOF
+    - yum install -y jq
+  interruptible: true
+
+# Generic docker-in-docker configuration
+.docker-template: &docker-template
   image: docker:latest
   tags:
     - docker
   services:
     - docker:dind
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  interruptible: true
+
+# Use AWS cli to get registry password and enpoint
+extract-aws-login:
+  stage: configure
+  <<: *aws-cli-template
+  script:
+    - aws ecr get-login-password > password.txt
+    - |
+      aws ecr get-authorization-token \
+      | jq -r '.[][0].proxyEndpoint' \
+      | sed s-https://-- \
+      > endpoint.txt
+  artifacts:
+    name: "aws-login"
+    paths:
+      - password.txt
+      - endpoint.txt
+    public: false
+    expire_in: 5 mins
+  needs: []
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# Build and deploy integrated image to Gitlab Registry
+build-server-image:
+  stage: build
+  <<: *docker-template
   variables:
     API_CALL_URL: $CI_API_V4_URL/projects/$FRONTEND_PROJECT_ID/jobs/artifacts/$FRONTEND_BRANCH_NAME/download?job=$FRONTEND_BUILD_JOB_NAME
     BACKEND_IMAGE: $CI_REGISTRY/$CI_PROJECT_NAMESPACE/backend/deploy:$BACKEND_IMAGE_TAG
-    DEPLOY_IMAGE: $CI_REGISTRY/$CI_PROJECT_PATH/server
-  before_script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    # Get frontend build directory from pipeline artifacts
-    - 'wget -O artifacts.zip --header "PRIVATE-TOKEN: $PRIVATE_TOKEN" "$API_CALL_URL"'
-    - unzip -o artifacts.zip
   script:
     # Get backend image with server executable
     - docker create --name ServerImage $BACKEND_IMAGE
-    # Copy frontend files to image and deploy the integrated one
+    # Copy frontend build directory from pipeline artifacts to image
+    - 'wget -O artifacts.zip --header "PRIVATE-TOKEN: $PRIVATE_TOKEN" "$API_CALL_URL"'
+    - unzip -o artifacts.zip
     - docker cp ./build ServerImage:/app/Public
-    - docker commit ServerImage $DEPLOY_IMAGE:$DEPLOY_TAG
-    - docker push $DEPLOY_IMAGE:$DEPLOY_TAG
+    # Rebuild and deploy the integrated image to gitlab
+    - docker commit ServerImage $GITLAB_IMAGE:$DEPLOY_TAG
+    - docker push $GITLAB_IMAGE:$DEPLOY_TAG
   needs: []
+
+# Deploy integrated image to AWS Registry (only runs in main)
+deploy-image-to-aws:
+  stage: deploy
+  <<: *docker-template
+  script:
+    - docker pull $GITLAB_IMAGE:$DEPLOY_TAG
+    # login to AWS and send Gitlab image
+    - docker login -u AWS -p $(cat password.txt) https://$(cat endpoint.txt)
+    - docker tag $GITLAB_IMAGE:$DEPLOY_TAG $(cat endpoint.txt)/$AWS_IMAGE
+    - docker push $(cat endpoint.txt)/$AWS_IMAGE
+  needs:
+    - job: extract-aws-login
+      artifacts: true
+    - job: build-server-image
+      artifacts: false
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# Stop running task on AWS and start a new one (only runs in main)
+restart-aws-service:
+  stage: deploy
+  <<: *aws-cli-template
+  script:
+    # extract current cluster, service and task
+    - export AWS_CLUSTER=$(aws ecs list-clusters | jq -r '.[][0]')
+    - export AWS_SERVICE=$(aws ecs list-services --cluster $AWS_CLUSTER | jq -r '.[][0]')
+    - export CURRENT_TASK=$(aws ecs list-tasks --cluster $AWS_CLUSTER | jq -r '.[][0]')
+    # stop current, start a new one and wait for it to get stable again
+    - aws ecs stop-task --cluster $AWS_CLUSTER --task $CURRENT_TASK --reason "Updating image from pipeline"
+    - aws ecs update-service --cluster $AWS_CLUSTER --service $AWS_SERVICE --force-new-deployment
+    - aws ecs wait services-stable --cluster $AWS_CLUSTER --service $AWS_SERVICE
+  needs:
+    - job: deploy-image-to-aws
+      artifacts: false
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# Remove old, unused images from AWS registry (only runs in main)
+remove-old-aws-images:
+  stage: clean
+  <<: *aws-cli-template
+  script:
+    # extract aws repository info
+    - export AWS_REGISTRY=$(aws ecr describe-repositories | jq -r '.[][0].registryId')
+    - export AWS_REPOSITORY=$(aws ecr describe-repositories | jq -r '.[][0].repositoryName')
+    # get untagged images and join like 'imageDigest=$UNTAGGED[0] imageDigest=$UNTAGGED[1] ...'
+    # as expected by batch-delete-images
+    - |
+      export UNTAGGED_IMAGES=$( \
+        aws ecr describe-images \
+          --registry-id $AWS_REGISTRY \
+          --repository-name $AWS_REPOSITORY \
+          --filter 'tagStatus=UNTAGGED' \
+          | jq -r '.[][].imageDigest' \
+          | awk '{print "imageDigest="$0}' \
+      )
+    # delete all untagged images at once (can't be zero)
+    - |
+      if [ -n "$UNTAGGED_IMAGES" ]
+      then
+        aws ecr batch-delete-image \
+          --registry-id $AWS_REGISTRY \
+          --repository-name $AWS_REPOSITORY \
+          --image-ids $UNTAGGED_IMAGES
+      else
+        echo "No untagged images found"
+      fi
+  needs:
+    - job: deploy-image-to-aws
+      artifacts: false
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
