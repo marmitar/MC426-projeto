@@ -1,5 +1,7 @@
 # Planejador de Disciplinas
 
+Uma explicação em vídeo com demonstração desse projeto pode ser encontrada [aqui](https://youtu.be/p_p-Px1tfUs).
+
 Esse projeto tem como objetivo principal desenvolver uma plataforma para auxiliar estudantes de universidades públicas a planejar as disciplinas que irão cursar.
 
 Para isso, serão levados em conta conflitos de horário e pré-requisitos necessários para cursar as diferentes disciplinas.
