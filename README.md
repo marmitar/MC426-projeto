@@ -1,4 +1,4 @@
-# Planejador de Disciplinas
+# Planejador de Disciplinas (Projeto de MC426)
 
 Uma explicação em vídeo com demonstração desse projeto pode ser encontrada [aqui](https://youtu.be/p_p-Px1tfUs).
 
